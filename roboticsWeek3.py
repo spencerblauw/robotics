@@ -1,46 +1,53 @@
 
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.spatial.transform import Rotation as R
-from itertools import product, combinations
-from matplotlib.patches import FancyArrowPatch
-from mpl_toolkits.mplot3d import proj3d
+import sys
 
 E = 10 #rounding constant
-I = np.array([ [1,0,0],
-			   [0,1,0],
-			   [0,0,1]  ])
-
-
-# Angles in degrees
-T1 = 90 # Angle 1
-T2 = 90 # Angle 2
-T1 = np.deg2rad(T1)
-T2 = np.deg2rad(T1)
 
 # frame lengths
 a1 = 1 
 a2 = 1 
 a3 = 1 
 a4 = 1 
+# Angles in degrees
+T1 = 90 # Angle 1
+T2 = 90 # Angle 2
+T3 = 90 # Angle 3
 
-# Define the first rotation matrix.
+T1 = (T1/180)*np.pi
+T2 = (T2/180)*np.pi
+T3 = (T3/180)*np.pi
+
+    # Define the First rotation matrix. ***ROATES AROUND Z Axis***
 def getMatrices():
     R0_1 = np.array([       [np.cos(T1), -np.sin(T1), 0],
                             [np.sin(T1), np.cos(T1), 0],
                             [0, 0, 1]]) 
-    # Define the second rotation matrix.
-    R1_2 = np.array([       [np.cos(T2), -np.sin(T2), 0],
-                            [np.sin(T2), np.cos(T2), 0],
-                            [0, 0, 1]]) 
+    R0_1 = np.ndarray.round(R0_1, E)
+    print('R0_1 =\n', R0_1)
+    print()
+    # Define the Second rotation matrix. ***ROATES AROUND X Axis***
+    R1_2 = np.array([       [1, 0, 0],
+                            [0, np.cos(T2), -np.sin(T2)],
+                            [-np.sin(T2), 0, np.cos(T2)]]) 
     R0_2 = np.dot(R0_1, R1_2)
     R0_2 = np.ndarray.round(R0_2, E)
     print('R0_2 =\n', R0_2)
     print()
+
+     # Define the Third rotation matrix. ***ROATES AROUND Z Axis***
+    R3_2 =   ([[np.cos(T3), -np.sin(T3), 0],
+              [np.sin(T3), np.cos(T3), 0],
+              [0, 0, 1]])
+    R0_3 = np.dot(R0_2, R3_2)
+    R0_3 = np.ndarray.round(R0_3, E)
+    print('R0_3\n', R0_3)
+    print()
+# Frame can only be mainpulated in the Z direction in this SCARA model.  End Effector length can range from (0,1).
     
+
     
     #Calculate HTMs
-    
     # Row vector for HTM
     extra_row = np.array([[0, 0, 0, 1]])
     
@@ -64,6 +71,9 @@ def getMatrices():
     print('D1_2 =\n', D1_2)
     print()
     
+    #Frame 2 to fram 3
+    D2_3 = D1_2
+
     #HTM frame 0 to frame 1
     H0_1 = np.concatenate((R0_1, D0_1), axis=1)
     H0_1 = H0_1.reshape(3,4)
@@ -84,111 +94,62 @@ def getMatrices():
     print("Homogeneous Transformation Matrix\n Frame Frame 0 --> Frame 2")
     print('H0_2 =\n', H0_2)
     print()
-    return D0_1, D1_2, H0_1, H0_2, H1_2, R0_1, R0_2, R1_2, extra_row
 
-D0_1, D1_2, H0_1, H0_2, H1_2, R0_1, R0_2, R1_2, extra_row = getMatrices()
+    #HTM from frame 2 to frame 3
+    H2_3 = np.concatenate((R3_2, D2_3), axis=1)
+    H2_3 = np.concatenate((H2_3, extra_row), 0)
+    H2_3 = np.ndarray.round(H2_3, E)
+    print('H2_3 =\n', H2_3)
+    print()
+
+    #Frame 3 to 1
+    H1_3 = np.dot(H1_2, H2_3)
+    H1_3 = np.ndarray.round(H1_3, E)
+    
+    #HTM from frame 0 to frame 3
+    H0_3 = np.dot(H0_2, H2_3)
+    H0_3 = np.ndarray.round(H0_3, E)
+    print("Homogeneous Transformation Matrix\n Frame Frame 0 --> Frame 3")
+    print('H0_3 =\n', H0_3)
+    print()
+
+    return D0_1, D1_2, D2_3, H0_1, H0_2, H1_2, H1_3, H2_3, H0_3, R0_1, R0_2, R1_2, extra_row
+
+D0_1, D1_2, D2_3, H0_1, H0_2, H1_2, H1_3, H2_3, H0_3, R0_1, R0_2, R1_2, extra_row = getMatrices()
 
 #Points
 def getPoints():
-    p2 = [1,0,0]
-    p2 = np.array(p2)
-    p2 = p2.reshape(3,1)
-    p2 = np.concatenate((p2, [[1]]), 0)
+    # End Point
+    c = [1,0,0]
+    p3 = c
+    p3 = np.array(p3)
+    p3 = p3.reshape(3,1)
+    p3 = np.concatenate((p3, [[1]]), 0)
+    print('p3 = ')
+    print(p3)
+    print()
+    # p2
+    p2 = H2_3.dot(p3)
+    p2 = np.ndarray.round(p2, E)
     print('p2 = ')
     print(p2)
     print()
     # p1
-    p1 = np.dot(H1_2,p2)
-    p1 = np.ndarray.round(p1, E)
+    p1  = H1_3.dot(p3)
+    p1  = np.ndarray.round(p1, E)
     print('p1 = ')
     print(p1)
     print()
     # p0
-    p0 = np.dot( H0_2,p2)
+    p0 = H0_3.dot(p3)
     p0 = np.ndarray.round(p0, E)
-    print("p0 = ")
+    print('p0 = ')
     print(p0)
     print()
     
     w = p0[3][0]
     c = [p0[i][0]/w for i in [0, 1, 2]]
     print("Cartesian Coordinates for p0: \n", c)
-    return p0, p1, p2, w
+    return p0, p1, p2, p3, w
 
-p0, p1, p2, w = getPoints()
-
-#Visualize Data
-def data_visualization():
-    fig = plt.figure("3D Rotation Chart", figsize=(12,9))
-    ax = fig.add_subplot(projection = '3d')
-    ax.set_aspect("auto")
-    plt.title("3D Rotation Chart");
-    
-    ax.scatter([0], [0], [0], color="g", s=100)
-    ax.scatter([1], [0], [0], color="k", s=0)
-    ax.scatter([-1], [0], [0], color="k", s=0)
-    ax.scatter([0], [1], [0], color="k", s=0)
-    ax.scatter([0], [-1], [0], color="k", s=0)
-    ax.scatter([0], [0], [1], color="k", s=0)
-    ax.scatter([0], [0], [-1], color="k", s=0)
-    
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    
-    class Arrow3D(FancyArrowPatch):
-    	def __init__(self, xs, ys, zs, *args, **kwargs):
-    		FancyArrowPatch.__init__(self, (0,0), (0,0), *args, **kwargs)
-    		self._verts3d = xs, ys, zs
-    	def draw(self, renderer):
-    		xs3d, ys3d, zs3d = self._verts3d
-    		xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
-    		self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-    		FancyArrowPatch.draw(self, renderer)
-    
-    #verts
-    a = Arrow3D([0,1],[0,0],[0,0])
-    b = Arrow3D([0,-1],[0,0],[0,0])
-    c = Arrow3D([0,0],[0,1],[0,0])
-    d = Arrow3D([0,0],[0,-1],[0,0])
-    e = Arrow3D([0,0],[0,0],[0,1])
-    f = Arrow3D([0,0],[0,0],[0,-1])
-    verts = [a,b,c,d,e,f]
-    for a in verts:
-    	ax.add_artist(a)
-    
-    #frames
-    arrows1 = []
-    arrows2 = []
-    i=1
-    
-    #Before rotation
-    V1 = D0_1
-    V2 = D1_2
-    V3 = (D1_2 * D0_1)
-    #After rotation
-    V1_2 = D0_1
-    V2_2 = D1_2
-    V3_2 = (D1_2 * D0_1)
-    
-    #Before
-    ax.text(V1[0]+.05,V1[1]+.05,V1[2]+.05, '%s' % "V1: "+str(V1), size=12, zorder=1, color='b')
-    arrows1.append(Arrow3D([0,V1[0]], [0,V1[1]], [0,V1[2]], mutation_scale=20, lw=3, arrowstyle="-|>", color = "b"))
-    ax.text(V2[0]+.05,V2[1]+.05,V2[2]+.05, '%s' % "V2: "+str(V2), size=12, zorder=1, color='b')
-    arrows1.append(Arrow3D([V1[0],V2[0]], [V1[1],V2[1]], [V1[2],V2[2]], mutation_scale=20, lw=3, arrowstyle="-|>", color = "b"))
-    ax.text(V3[0]+.05,V3[1]+.05,V3[2]+.05, '%s' % "V3: "+str(V3), size=12, zorder=1, color='b')
-    arrows1.append(Arrow3D([V2[0],V3[0]], [V2[1],V3[1]], [V2[2],V3[2]], mutation_scale=20, lw=3, arrowstyle="-|>", color = "b"))
-    #after
-    ax.text(V1_2[0]+.05,V1_2[1]+.05,V1_2[2]+.05, '%s' % "V1: "+str(V1), size=12, zorder=1, color='r')
-    arrows1.append(Arrow3D([0,V1_2[0]], [0,V1_2[1]], [0,V1_2[2]], mutation_scale=20, lw=3, arrowstyle="-|>", color = "r"))
-    ax.text(V2_2[0]+.05,V2_2[1]+.05,V2_2[2]+.05, '%s' % "V2: "+str(V2), size=12, zorder=1, color='r')
-    arrows1.append(Arrow3D([V1_2[0],V2_2[0]], [V1_2[1],V2_2[1]], [V1_2[2],V2_2[2]], mutation_scale=20, lw=3, arrowstyle="-|>", color = "r"))
-    ax.text(V3_2[0]+.05,V3_2[1]+.05,V3_2[2]+.05, '%s' % "V3: "+str(V3), size=12, zorder=1, color='r')
-    arrows1.append(Arrow3D([V2_2[0],V3_2[0]], [V2_2[1],V3_2[1]], [V2_2[2],V3_2[2]], mutation_scale=20, lw=3, arrowstyle="-|>", color = "r"))
-    
-    for a in arrows1:
-    	ax.add_artist(a)
-    plt.show()
-    return Arrow3D, V1, V1_2, V2, V2_2, V3, V3_2, a, arrows1, arrows2, ax, b, c, d, e, f, fig, i, verts
-
-#Arrow3D, V1, V1_2, V2, V2_2, V3, V3_2, a, arrows1, arrows2, ax, b, c, d, e, f, fig, i, verts = data_visualization()
+p0, p1, p2, p3, w = getPoints()
